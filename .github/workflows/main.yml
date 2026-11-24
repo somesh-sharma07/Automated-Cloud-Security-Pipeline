@@ -33,6 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      security-events: write
     outputs:
       dashboard_ready: ${{ steps.auditor.outputs.dashboard_ready }}
 
@@ -40,7 +41,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v7
 
-      - name: Run Checkov Terraform Scan (JSON Report)
+      - name: Run Checkov Terraform Scan (JSON + SARIF)
         id: checkov
         continue-on-error: true
         uses: bridgecrewio/checkov-action@master
@@ -48,9 +49,15 @@ jobs:
           directory: .
           framework: terraform
           external_checks_dirs: custom_policies
-          output_format: json
+          output_format: json,sarif
           output_file_path: checkov-results
           soft_fail: false
+
+      - name: Upload SARIF to GitHub Security Tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: checkov-results/results_sarif.sarif
 
       - name: Setup Python
         uses: actions/setup-python@v7

@@ -10,8 +10,26 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  secret-scan:
+    name: 0. Secret Scan (Gitleaks)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Code (Full Git History)
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks Secret Scanner
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   security-scan:
     name: 1. Security Scan & AI Audit
+    needs: secret-scan
     runs-on: ubuntu-latest
     permissions:
       contents: read

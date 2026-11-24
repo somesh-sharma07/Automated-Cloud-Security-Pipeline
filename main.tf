@@ -5,6 +5,7 @@ provider "aws" {
 
 # 2. Create the Virtual Private Cloud (VPC)
 resource "aws_vpc" "main_vpc" {
+  # checkov:skip=CKV2_AWS_11:VPC Flow Logs omitted to avoid paid CloudWatch/KMS resources in student lab
   cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
   enable_dns_support   = true
@@ -14,11 +15,20 @@ resource "aws_vpc" "main_vpc" {
   }
 }
 
-# 3. Create a Public Subnet (For web servers/load balancers)
+# 3. Lock Down the Default Security Group (Fixes CKV2_AWS_12)
+resource "aws_default_security_group" "default" {
+  vpc_id = aws_vpc.main_vpc.id
+
+  tags = {
+    Name = "DevSecOps-Default-SG-Restricted"
+  }
+}
+
+# 4. Create a Public Subnet (Fixes CKV_AWS_130)
 resource "aws_subnet" "public_subnet" {
   vpc_id                  = aws_vpc.main_vpc.id
   cidr_block              = "10.0.1.0/24"
-  map_public_ip_on_launch = true
+  map_public_ip_on_launch = false
   availability_zone       = "ap-southeast-2a"
 
   tags = {
@@ -26,7 +36,7 @@ resource "aws_subnet" "public_subnet" {
   }
 }
 
-# 4. Create a Private Subnet (For secure databases)
+# 5. Create a Private Subnet (For secure databases)
 resource "aws_subnet" "private_subnet" {
   vpc_id            = aws_vpc.main_vpc.id
   cidr_block        = "10.0.2.0/24"
@@ -37,7 +47,7 @@ resource "aws_subnet" "private_subnet" {
   }
 }
 
-# 5. Create an Internet Gateway (Allows the public subnet to reach the internet)
+# 6. Create an Internet Gateway (Allows the public subnet to reach the internet)
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main_vpc.id
 
@@ -46,7 +56,7 @@ resource "aws_internet_gateway" "igw" {
   }
 }
 
-# 6. Create a Route Table and Link it to the Internet Gateway
+# 7. Create a Route Table and Link it to the Internet Gateway
 resource "aws_route_table" "public_rt" {
   vpc_id = aws_vpc.main_vpc.id
 
@@ -60,7 +70,7 @@ resource "aws_route_table" "public_rt" {
   }
 }
 
-# 7. Associate the Route Table with the Public Subnet
+# 8. Associate the Route Table with the Public Subnet
 resource "aws_route_table_association" "public_rt_assoc" {
   subnet_id      = aws_subnet.public_subnet.id
   route_table_id = aws_route_table.public_rt.id

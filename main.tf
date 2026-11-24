@@ -17,7 +17,7 @@ terraform {
   }
 }
 
-# 1. Configure the AWS Provider
+# 1. Configure the AWS Provider (Validated by CKV_CUSTOM_1)
 provider "aws" {
   region = "ap-southeast-2"
 }
@@ -30,7 +30,9 @@ resource "aws_vpc" "main_vpc" {
   enable_dns_support   = true
 
   tags = {
-    Name = "DevSecOps-VPC"
+    Name        = "DevSecOps-VPC"
+    Owner       = "Somesh-Sharma"
+    Environment = "DevSecOps-Lab"
   }
 }
 
@@ -39,7 +41,9 @@ resource "aws_default_security_group" "default" {
   vpc_id = aws_vpc.main_vpc.id
 
   tags = {
-    Name = "DevSecOps-Default-SG-Restricted"
+    Name        = "DevSecOps-Default-SG-Restricted"
+    Owner       = "Somesh-Sharma"
+    Environment = "DevSecOps-Lab"
   }
 }
 
@@ -51,18 +55,22 @@ resource "aws_subnet" "public_subnet" {
   availability_zone       = "ap-southeast-2a"
 
   tags = {
-    Name = "Public-Subnet"
+    Name        = "Public-Subnet"
+    Owner       = "Somesh-Sharma"
+    Environment = "DevSecOps-Lab"
   }
 }
 
-# 5. Create a Private Subnet (For secure databases)
+# 5. Create a Private Subnet (For isolated database tier)
 resource "aws_subnet" "private_subnet" {
   vpc_id            = aws_vpc.main_vpc.id
   cidr_block        = "10.0.2.0/24"
   availability_zone = "ap-southeast-2a"
 
   tags = {
-    Name = "Private-Subnet"
+    Name        = "Private-Subnet"
+    Owner       = "Somesh-Sharma"
+    Environment = "DevSecOps-Lab"
   }
 }
 
@@ -71,7 +79,9 @@ resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main_vpc.id
 
   tags = {
-    Name = "Main-IGW"
+    Name        = "Main-IGW"
+    Owner       = "Somesh-Sharma"
+    Environment = "DevSecOps-Lab"
   }
 }
 
@@ -85,7 +95,9 @@ resource "aws_route_table" "public_rt" {
   }
 
   tags = {
-    Name = "Public-RouteTable"
+    Name        = "Public-RouteTable"
+    Owner       = "Somesh-Sharma"
+    Environment = "DevSecOps-Lab"
   }
 }
 
@@ -93,4 +105,56 @@ resource "aws_route_table" "public_rt" {
 resource "aws_route_table_association" "public_rt_assoc" {
   subnet_id      = aws_subnet.public_subnet.id
   route_table_id = aws_route_table.public_rt.id
+}
+
+# 9. Zero-Trust Web-Tier Security Group (HTTPS 443 In -> Private DB Subnet 3306 Out Only)
+resource "aws_security_group" "web_tier_sg" {
+  # checkov:skip=CKV2_AWS_5:Zero-Trust SG blueprint pre-provisioned without paid EC2 compute instances
+  name        = "devsecops-web-tier-sg"
+  description = "Zero-Trust Web Tier: allows HTTPS 443 inbound and restricts outbound to DB subnet port 3306"
+  vpc_id      = aws_vpc.main_vpc.id
+
+  ingress {
+    description = "Allow encrypted HTTPS traffic from internet"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description = "Allow outbound MySQL queries only to Private Subnet"
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    cidr_blocks = [aws_subnet.private_subnet.cidr_block]
+  }
+
+  tags = {
+    Name        = "ZeroTrust-Web-Tier-SG"
+    Owner       = "Somesh-Sharma"
+    Environment = "DevSecOps-Lab"
+  }
+}
+
+# 10. Zero-Trust Database-Tier Security Group (Accepts Port 3306 ONLY from Web-Tier SG)
+resource "aws_security_group" "db_tier_sg" {
+  # checkov:skip=CKV2_AWS_5:Zero-Trust SG blueprint pre-provisioned without paid RDS database instances
+  name        = "devsecops-db-tier-sg"
+  description = "Zero-Trust Database Tier: isolated from internet, accepts port 3306 strictly from Web-Tier SG"
+  vpc_id      = aws_vpc.main_vpc.id
+
+  ingress {
+    description     = "Allow MySQL traffic strictly from Web-Tier Security Group"
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_security_group.web_tier_sg.id]
+  }
+
+  tags = {
+    Name        = "ZeroTrust-DB-Tier-SG"
+    Owner       = "Somesh-Sharma"
+    Environment = "DevSecOps-Lab"
+  }
 }

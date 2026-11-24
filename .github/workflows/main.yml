@@ -21,6 +21,7 @@ jobs:
         with:
           directory: .
           framework: terraform
+          external_checks_dirs: custom_policies
           soft_fail: false
 
   deploy:

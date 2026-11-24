@@ -1,18 +1,16 @@
-name: DevSecOps Security Gate
+name: DevSecOps Security Gate & Deploy
 
 on:
   push:
     branches:
       - main
-      - master
-
-permissions:
-  contents: read
 
 jobs:
   security-scan:
-    name: Checkov Security Scan
+    name: 1. Checkov Security Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout Code
@@ -24,3 +22,37 @@ jobs:
           directory: .
           framework: terraform
           soft_fail: false
+
+  deploy:
+    name: 2. Terraform Deploy to AWS
+    needs: security-scan
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ap-southeast-2
+          mask-aws-account-id: true
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: terraform plan -no-color
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -no-color

@@ -1,3 +1,22 @@
+terraform {
+  required_version = ">= 1.10.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+
+  backend "s3" {
+    bucket       = "tf-state-somesh-081298790381"
+    key          = "devsecops/terraform.tfstate"
+    region       = "ap-southeast-2"
+    encrypt      = true
+    use_lockfile = true
+  }
+}
+
 # 1. Configure the AWS Provider
 provider "aws" {
   region = "ap-southeast-2"
@@ -47,7 +66,7 @@ resource "aws_subnet" "private_subnet" {
   }
 }
 
-# 6. Create an Internet Gateway (Allows the public subnet to reach the internet)
+# 6. Create an Internet Gateway
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main_vpc.id
 

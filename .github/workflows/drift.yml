@@ -1,0 +1,77 @@
+name: AWS Cloud Drift Detection
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *"
+
+jobs:
+  drift-detection:
+    name: Check Live AWS vs. Terraform State
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ap-southeast-2
+          mask-aws-account-id: true
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        run: terraform init -no-color
+
+      - name: Run Drift Check (Detailed Exit Code)
+        run: |
+          set +e
+          terraform plan -detailed-exitcode -no-color > drift_plan.txt 2>&1
+          EXIT_CODE=$?
+          set -e
+
+          cat drift_plan.txt
+
+          if [ "$EXIT_CODE" -eq 0 ]; then
+            {
+              echo "## AWS Drift Detection Report — CLEAN"
+              echo ""
+              echo "| Check | Status |"
+              echo "| :--- | :--- |"
+              echo "| **Region** | \`ap-southeast-2\` (Sydney) |"
+              echo "| **Drift Status** | No unauthorized manual changes detected |"
+              echo "| **Live AWS vs. Code** | 100% Synchronized |"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+
+          elif [ "$EXIT_CODE" -eq 2 ]; then
+            {
+              echo "## ALERT: AWS Configuration Drift Detected!"
+              echo ""
+              echo "Live AWS resources in \`ap-southeast-2\` no longer match \`main.tf\` (unauthorized console edit detected)."
+              echo ""
+              echo "### Detected Drift Diff"
+              echo '```hcl'
+              tail -n 80 drift_plan.txt
+              echo '```'
+              echo ""
+              echo "**Remediation:** Re-run \`DevSecOps Security Gate & Deploy\` to automatically revert AWS back to the approved Zero-Trust baseline."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+
+          else
+            {
+              echo "## Drift Detection Error"
+              echo "Terraform plan failed with exit code \`$EXIT_CODE\`. Inspect step logs for details."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit "$EXIT_CODE"
+          fi

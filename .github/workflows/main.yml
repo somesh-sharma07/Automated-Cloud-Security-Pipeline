@@ -5,27 +5,79 @@ on:
     branches:
       - main
 
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
   security-scan:
-    name: 1. Checkov Security Scan
+    name: 1. Security Scan & AI Audit
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      dashboard_ready: ${{ steps.auditor.outputs.dashboard_ready }}
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
 
-      - name: Run Checkov Terraform Scan
+      - name: Run Checkov Terraform Scan (JSON Report)
+        id: checkov
+        continue-on-error: true
         uses: bridgecrewio/checkov-action@master
         with:
           directory: .
           framework: terraform
           external_checks_dirs: custom_policies
+          output_format: json
+          output_file_path: checkov-results
           soft_fail: false
 
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install Gemini GenAI SDK
+        run: pip install --quiet google-genai
+
+      - name: Run Python Security Auditor & Generate Dashboard
+        id: auditor
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python scripts/security_auditor.py
+
+      - name: Upload Dashboard Artifact for GitHub Pages
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dashboard
+
+      - name: Enforce Shift-Left Security Gate
+        if: steps.checkov.outcome == 'failure'
+        run: |
+          echo "Security gate failed! Live dashboard updated with Gemini AI remediation patches. Blocking AWS deployment."
+          exit 1
+
+  publish-dashboard:
+    name: 2A. Publish Live Dashboard
+    needs: security-scan
+    if: always() && needs.security-scan.outputs.dashboard_ready == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy Dashboard to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
+
   deploy:
-    name: 2. Terraform Deploy to AWS
+    name: 2B. Terraform Deploy to AWS
     needs: security-scan
     runs-on: ubuntu-latest
     permissions:

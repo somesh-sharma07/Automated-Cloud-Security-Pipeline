@@ -42,8 +42,8 @@ resource "aws_default_security_group" "default" {
 
   tags = {
     Name        = "DevSecOps-Default-SG-Restricted"
-    Owner       = "Somesh-Sharma"
-    Environment = "DevSecOps-Lab"
+    #Owner       = "Somesh-Sharma"
+    #Environment = "DevSecOps-Lab"
   }
 }
 
@@ -116,8 +116,8 @@ resource "aws_security_group" "web_tier_sg" {
 
   ingress {
     description = "Allow encrypted HTTPS traffic from internet"
-    from_port   = 443
-    to_port     = 443
+    from_port   = 22
+    to_port     = 22
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }

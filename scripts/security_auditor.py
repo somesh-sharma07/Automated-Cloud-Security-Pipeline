@@ -300,7 +300,7 @@ def generate_dashboard_html(
       --border: #1f2937;
       --text: #f3f4f6;
       --muted: #9ca3af;
-      --green: #22c55e;
+      --green: #000080;
       --red: #ef4444;
       --amber: #f59e0b;
       --purple: #a855f7;

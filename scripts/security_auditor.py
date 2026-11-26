@@ -280,7 +280,7 @@ def generate_dashboard_html(
     run_url = f"https://github.com/{repo_name}/actions/runs/{run_id}" if run_id else "#"
 
     score_color = (
-        "#22c55e" if metrics["failed_count"] == 0 else ("#f59e0b" if metrics["score"] >= 75 else "#ef4444")
+        "#3b82f6" if metrics["failed_count"] == 0 else ("#f59e0b" if metrics["score"] >= 75 else "#ef4444")
     )
     banner_cls = "banner-pass" if metrics["failed_count"] == 0 else "banner-fail"
     ai_html = markdown_to_html(ai_markdown)
@@ -300,7 +300,7 @@ def generate_dashboard_html(
       --border: #1f2937;
       --text: #f3f4f6;
       --muted: #9ca3af;
-      --green: #000080;
+      --green: #3b82f6;
       --red: #ef4444;
       --amber: #f59e0b;
       --purple: #a855f7;
@@ -353,9 +353,9 @@ def generate_dashboard_html(
       margin-bottom: 24px;
     }}
     .banner-pass {{
-      background: rgba(34, 197, 94, 0.12);
-      border: 1px solid rgba(34, 197, 94, 0.4);
-      color: #86efac;
+      background: rgba(59, 130, 246, 0.14);
+      border: 1px solid rgba(59, 130, 246, 0.45);
+      color: #93c5fd;
     }}
     .banner-fail {{
       background: rgba(239, 68, 68, 0.14);
@@ -427,7 +427,7 @@ def generate_dashboard_html(
       font-weight: 700;
       vertical-align: middle;
     }}
-    .badge-pass {{ background: rgba(34,197,94,0.16); color: #4ade80; }}
+    .badge-pass {{ background: rgba(59,130,246,0.18); color: #60a5fa; }}
     .badge-fail {{ background: rgba(239,68,68,0.2); color: #f87171; }}
     .badge-skip {{ background: rgba(245,158,11,0.16); color: #fbbf24; }}
     .badge-custom {{ background: rgba(168,85,247,0.2); color: #d8b4fe; margin-left: 6px; }}
@@ -467,197 +467,4 @@ def generate_dashboard_html(
     <section class="kpi-grid">
       <div class="card">
         <div class="kpi-label">Compliance Score</div>
-        <div class="kpi-value" style="color: {score_color};">{metrics['score']}%</div>
-        <div class="kpi-sub">{metrics['passed_count']} of {metrics['total_evaluated']} active checks passed</div>
-      </div>
-      <div class="card">
-        <div class="kpi-label">Failed Controls</div>
-        <div class="kpi-value" style="color: var(--red);">{metrics['failed_count']}</div>
-        <div class="kpi-sub">Blocks Terraform AWS deployment</div>
-      </div>
-      <div class="card">
-        <div class="kpi-label">Custom Python Rules</div>
-        <div class="kpi-value" style="color: var(--purple);">{metrics['custom_passed']} / {metrics['custom_passed'] + metrics['custom_failed']}</div>
-        <div class="kpi-sub">CKV_CUSTOM_1 &amp; CKV_CUSTOM_2 passed</div>
-      </div>
-      <div class="card">
-        <div class="kpi-label">Documented Exceptions</div>
-        <div class="kpi-value" style="color: var(--amber);">{metrics['skipped_count']}</div>
-        <div class="kpi-sub">Inline lab-budget suppressions</div>
-      </div>
-    </section>
-
-    <section class="charts-grid">
-      <div class="card">
-        <strong>Security Gate Breakdown</strong>
-        <div class="chart-box"><canvas id="statusChart"></canvas></div>
-      </div>
-      <div class="card">
-        <strong>Built-in AWS vs. Custom Python Policies</strong>
-        <div class="chart-box"><canvas id="policyChart"></canvas></div>
-      </div>
-    </section>
-
-    <section class="card ai-card">
-      <div class="ai-header">
-        <strong>AI Security Auditor &amp; Remediation Engine</strong>
-        <span class="badge badge-custom">{html.escape(ai_engine)}</span>
-      </div>
-      <div class="ai-content">{ai_html}</div>
-    </section>
-
-    <section class="card">
-      <div class="ai-header">
-        <strong>Detailed Policy Audit Log</strong>
-        <div class="filter-bar">
-          <button class="filter-btn active" onclick="filterRows('ALL', this)">All</button>
-          <button class="filter-btn" onclick="filterRows('FAIL', this)">Failed ({metrics['failed_count']})</button>
-          <button class="filter-btn" onclick="filterRows('PASS', this)">Passed ({metrics['passed_count']})</button>
-          <button class="filter-btn" onclick="filterRows('SKIP', this)">Skipped ({metrics['skipped_count']})</button>
-        </div>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Status</th>
-              <th>Policy ID &amp; Engine</th>
-              <th>Terraform Resource</th>
-              <th>Location</th>
-              <th>Rule Description</th>
-            </tr>
-          </thead>
-          <tbody id="auditBody">
-            {table_rows}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  </div>
-
-  <script>
-    new Chart(document.getElementById('statusChart'), {{
-      type: 'doughnut',
-      data: {{
-        labels: ['Passed', 'Failed', 'Skipped'],
-        datasets: [{{
-          data: [{metrics['passed_count']}, {metrics['failed_count']}, {metrics['skipped_count']}],
-          backgroundColor: ['#22c55e', '#ef4444', '#f59e0b'],
-          borderColor: '#111827',
-          borderWidth: 3
-        }}]
-      }},
-      options: {{
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {{ legend: {{ position: 'bottom', labels: {{ color: '#e5e7eb' }} }} }}
-      }}
-    }});
-
-    new Chart(document.getElementById('policyChart'), {{
-      type: 'bar',
-      data: {{
-        labels: ['Built-in Checkov AWS', 'Custom Python Policies'],
-        datasets: [
-          {{
-            label: 'Passed',
-            data: [{metrics['builtin_passed']}, {metrics['custom_passed']}],
-            backgroundColor: '#22c55e'
-          }},
-          {{
-            label: 'Failed',
-            data: [{metrics['builtin_failed']}, {metrics['custom_failed']}],
-            backgroundColor: '#ef4444'
-          }}
-        ]
-      }},
-      options: {{
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {{
-          x: {{ stacked: true, ticks: {{ color: '#e5e7eb' }}, grid: {{ color: '#1f2937' }} }},
-          y: {{ stacked: true, beginAtZero: true, ticks: {{ color: '#e5e7eb', precision: 0 }}, grid: {{ color: '#1f2937' }} }}
-        }},
-        plugins: {{ legend: {{ position: 'bottom', labels: {{ color: '#e5e7eb' }} }} }}
-      }}
-    }});
-
-    function filterRows(status, btn) {{
-      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      document.querySelectorAll('#auditBody tr').forEach(row => {{
-        row.style.display = (status === 'ALL' || row.dataset.status === status) ? '' : 'none';
-      }});
-    }}
-  </script>
-</body>
-</html>
-"""
-
-
-def write_github_step_summary(
-    checks: Dict[str, List[Dict[str, Any]]],
-    metrics: Dict[str, Any],
-    ai_markdown: str,
-    ai_engine: str,
-) -> None:
-    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
-    if not summary_path:
-        return
-
-    lines = [
-        f"## DevSecOps Security Audit Report — `{metrics['status_badge']}`",
-        "",
-        "| Metric | Value |",
-        "| :--- | :--- |",
-        f"| **Compliance Score** | **{metrics['score']}%** |",
-        f"| **Passed Checks** | {metrics['passed_count']} ({metrics['custom_passed']} Custom Python) |",
-        f"| **Failed Checks** | {metrics['failed_count']} ({metrics['custom_failed']} Custom Python) |",
-        f"| **Skipped Checks** | {metrics['skipped_count']} |",
-        f"| **AI Engine** | {ai_engine} |",
-        "",
-        "### AI Security Analysis & Remediation",
-        ai_markdown,
-        "",
-    ]
-
-    if checks["failed"]:
-        lines.extend(["### Failed Controls Blocking Deployment", ""])
-        for c in checks["failed"]:
-            lines.append(
-                f"- **`{c.get('check_id')}`** — `{c.get('resource')}`: {c.get('check_name')}"
-            )
-
-    with open(summary_path, "a", encoding="utf-8") as fh:
-        fh.write("\n".join(lines) + "\n")
-
-
-def main() -> None:
-    report_path = find_checkov_json()
-    checks = parse_checkov_report(report_path)
-    metrics = calculate_metrics(checks)
-    ai_markdown, ai_engine = get_gemini_remediation(checks, metrics)
-
-    dashboard_dir = Path("dashboard")
-    dashboard_dir.mkdir(parents=True, exist_ok=True)
-    html_output = generate_dashboard_html(checks, metrics, ai_markdown, ai_engine)
-    (dashboard_dir / "index.html").write_text(html_output, encoding="utf-8")
-
-    write_github_step_summary(checks, metrics, ai_markdown, ai_engine)
-
-    github_output = os.environ.get("GITHUB_OUTPUT")
-    if github_output:
-        with open(github_output, "a", encoding="utf-8") as fh:
-            fh.write("dashboard_ready=true\n")
-
-    print("=" * 60)
-    print(f"Compliance Score : {metrics['score']}% ({metrics['status_label']})")
-    print(f"Passed / Failed  : {metrics['passed_count']} passed | {metrics['failed_count']} failed | {metrics['skipped_count']} skipped")
-    print(f"Custom Policies  : {metrics['custom_passed']} passed | {metrics['custom_failed']} failed")
-    print(f"AI Auditor Engine: {ai_engine}")
-    print("Dashboard written: dashboard/index.html")
-    print("=" * 60)
-
-
-if __name__ == "__main__":
-    main()
+        <div class="kpi-value
